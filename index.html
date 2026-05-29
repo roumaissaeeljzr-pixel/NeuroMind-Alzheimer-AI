@@ -1,0 +1,852 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep RL Explorer · DQN en direct</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=JetBrains+Mono:wght@400;500;700&family=Spline+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0f14; --bg2:#10151d; --panel:#141b25; --panel2:#192231;
+  --line:#243042; --ink:#e8edf4; --mut:#8c9bb0; --dim:#5d6b80;
+  --coral:#e8775f; --coral2:#f0a08c; --teal:#54d6c0; --phos:#9ef07a;
+  --amber:#f2c14e;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Spline Sans",sans-serif; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(1200px 500px at 80% -10%, rgba(232,119,95,.10), transparent 60%),
+    radial-gradient(900px 500px at 0% 10%, rgba(84,214,192,.07), transparent 55%);
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 22px; position:relative; z-index:2}
+.mono{font-family:"JetBrains Mono",monospace}
+
+/* ---- header ---- */
+header{padding:64px 0 30px}
+.kicker{font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.28em;
+  text-transform:uppercase; color:var(--coral); display:flex; gap:14px; align-items:center}
+.kicker::before{content:""; width:34px; height:1px; background:var(--coral)}
+h1{font-family:"Fraunces",serif; font-weight:340; font-size:clamp(38px,7vw,76px);
+  line-height:1.02; letter-spacing:-.02em; margin:18px 0 0}
+h1 em{font-style:italic; color:var(--coral2)}
+.sub{max-width:640px; color:var(--mut); font-size:17px; margin-top:18px}
+.meta{margin-top:26px; display:flex; flex-wrap:wrap; gap:10px; font-size:12.5px}
+.tag{font-family:"JetBrains Mono",monospace; border:1px solid var(--line);
+  padding:6px 12px; border-radius:999px; color:var(--mut)}
+.tag b{color:var(--teal); font-weight:500}
+
+/* ---- section frame ---- */
+section{padding:34px 0; border-top:1px solid var(--line); margin-top:30px}
+.snum{font-family:"JetBrains Mono",monospace; color:var(--dim); font-size:12px; letter-spacing:.2em}
+h2{font-family:"Fraunces",serif; font-weight:380; font-size:clamp(26px,4.2vw,40px);
+  margin:8px 0 6px; letter-spacing:-.01em}
+.lead{color:var(--mut); max-width:680px; margin-bottom:18px}
+
+/* ---- live lab ---- */
+.lab{background:linear-gradient(180deg,var(--panel),var(--bg2));
+  border:1px solid var(--line); border-radius:18px; overflow:hidden;
+  box-shadow:0 30px 70px -40px rgba(0,0,0,.9)}
+.lab-bar{display:flex; align-items:center; gap:10px; padding:12px 16px;
+  border-bottom:1px solid var(--line); background:rgba(255,255,255,.02)}
+.dot{width:10px; height:10px; border-radius:50%}
+.lab-title{font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--mut); letter-spacing:.1em}
+.lab-live{margin-left:auto; font-family:"JetBrains Mono",monospace; font-size:11px;
+  color:var(--dim); display:flex; align-items:center; gap:7px}
+.blink{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.blink.on{background:var(--phos); box-shadow:0 0 10px var(--phos); animation:pulse 1.1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.lab-grid{display:grid; grid-template-columns:1.15fr 1fr; gap:0}
+@media(max-width:760px){.lab-grid{grid-template-columns:1fr}}
+.pane{padding:18px}
+.pane.left{border-right:1px solid var(--line)}
+@media(max-width:760px){.pane.left{border-right:none; border-bottom:1px solid var(--line)}}
+canvas{display:block; width:100%; border-radius:10px; background:#0a0d12}
+.cv-cap{font-family:"JetBrains Mono",monospace; font-size:10.5px; color:var(--dim);
+  text-transform:uppercase; letter-spacing:.16em; margin:0 0 9px}
+
+/* controls */
+.ctrls{display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin-top:14px}
+button{font-family:"JetBrains Mono",monospace; font-size:12.5px; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel2); color:var(--ink);
+  padding:9px 15px; border-radius:9px; transition:.15s; letter-spacing:.03em}
+button:hover{border-color:var(--coral); color:var(--coral2)}
+button.primary{background:var(--coral); border-color:var(--coral); color:#1a0d09; font-weight:700}
+button.primary:hover{background:var(--coral2); color:#1a0d09}
+.speed{display:flex; align-items:center; gap:8px; margin-left:auto; color:var(--mut);
+  font-family:"JetBrains Mono",monospace; font-size:11px}
+input[type=range]{accent-color:var(--coral); width:90px}
+
+/* readouts */
+.stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:14px}
+.stat{background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:11px 12px}
+.stat .k{font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--dim)}
+.stat .v{font-family:"JetBrains Mono",monospace; font-size:21px; margin-top:3px; color:var(--ink)}
+.stat .v small{font-size:12px; color:var(--mut)}
+.bufwrap{margin-top:12px}
+.bufwrap .k{font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--dim); display:flex; justify-content:space-between}
+.bufbar{height:8px; background:var(--bg); border:1px solid var(--line); border-radius:6px;
+  overflow:hidden; margin-top:6px}
+.buffill{height:100%; width:0%; background:linear-gradient(90deg,var(--teal),var(--phos)); transition:width .25s}
+.sync{margin-top:11px; font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--dim);
+  border:1px dashed var(--line); border-radius:8px; padding:9px 11px; transition:.2s}
+.sync.flash{color:#0a0d12; background:var(--amber); border-color:var(--amber)}
+
+/* component map */
+.cmap{display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:8px}
+@media(max-width:680px){.cmap{grid-template-columns:1fr}}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px 20px;
+  position:relative; overflow:hidden}
+.card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--coral)}
+.card.t::before{background:var(--teal)} .card.p::before{background:var(--phos)} .card.a::before{background:var(--amber)}
+.card h3{margin:0 0 7px; font-family:"JetBrains Mono",monospace; font-size:13px; letter-spacing:.05em;
+  color:var(--ink); text-transform:uppercase}
+.card p{margin:0; color:var(--mut); font-size:14.5px}
+.card .badge{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--dim);
+  display:block; margin-bottom:9px; letter-spacing:.12em}
+
+/* algorithm steps */
+.steps{counter-reset:s; display:grid; gap:10px; margin-top:6px}
+.step{display:flex; gap:16px; background:var(--panel); border:1px solid var(--line);
+  border-radius:12px; padding:14px 18px}
+.step::before{counter-increment:s; content:counter(s,decimal-leading-zero);
+  font-family:"JetBrains Mono",monospace; color:var(--coral); font-size:13px; min-width:26px}
+.step b{color:var(--ink); font-weight:600}
+.step span{color:var(--mut)}
+.eq{font-family:"JetBrains Mono",monospace; background:var(--bg); border:1px solid var(--line);
+  color:var(--phos); padding:2px 7px; border-radius:6px; font-size:13px; white-space:nowrap}
+
+/* family table */
+.fam{width:100%; border-collapse:collapse; margin-top:6px; font-size:14px; overflow:hidden;
+  border:1px solid var(--line); border-radius:14px; display:block}
+.fam table{width:100%; border-collapse:collapse}
+table.famt{width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:14px; overflow:hidden}
+.famt th{background:var(--coral); color:#1a0d09; text-align:left; padding:13px 15px;
+  font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:700}
+.famt td{padding:14px 15px; border-top:1px solid var(--line); color:var(--mut); vertical-align:top}
+.famt tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+.famt td b{color:var(--ink); font-weight:600; font-family:"JetBrains Mono",monospace; font-size:13px}
+@media(max-width:680px){.famt{font-size:12.5px} .famt th,.famt td{padding:10px}}
+
+/* two-col compare */
+.cols{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:6px}
+@media(max-width:680px){.cols{grid-template-columns:1fr}}
+.col{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px}
+.col h3{margin:0 0 4px; font-family:"Fraunces",serif; font-weight:420; font-size:21px}
+.col .ex{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--teal); letter-spacing:.08em}
+.col ul{margin:12px 0 0; padding-left:18px; color:var(--mut); font-size:14px}
+.col li{margin:5px 0}
+
+/* modern methods */
+.mm{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:6px}
+@media(max-width:680px){.mm{grid-template-columns:1fr}}
+.mm .card h3{font-size:14px}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.chip{font-family:"JetBrains Mono",monospace; font-size:10.5px; color:var(--mut);
+  border:1px solid var(--line); padding:4px 9px; border-radius:999px}
+
+/* ---- journey (8 chapitres) ---- */
+.journey{position:relative; margin-top:16px}
+.chap{position:relative; padding:0 0 22px 60px}
+.chap:last-child{padding-bottom:0}
+.chap::before{content:""; position:absolute; left:19px; top:34px; bottom:-2px; width:2px; background:var(--line)}
+.chap:last-child::before{display:none}
+.node{position:absolute; left:3px; top:0; width:36px; height:36px; border-radius:50%; display:grid; place-items:center;
+  font-family:"JetBrains Mono",monospace; font-size:15px; font-weight:700; background:var(--bg2);
+  border:2px solid var(--nc,var(--coral)); color:var(--nc,var(--coral)); z-index:2;
+  box-shadow:0 0 0 5px var(--bg)}
+.acc-coral{--nc:var(--coral)} .acc-teal{--nc:var(--teal)} .acc-phos{--nc:var(--phos)} .acc-amber{--nc:var(--amber)}
+.box{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 20px; position:relative; overflow:hidden}
+.glyph{position:absolute; right:16px; top:15px; width:50px; height:50px; color:var(--nc,var(--coral)); opacity:.92}
+@media(max-width:560px){.glyph{display:none}}
+.chead{display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; margin-bottom:6px; padding-right:54px}
+.chead h3{font-family:"Fraunces",serif; font-weight:440; font-size:clamp(19px,3.4vw,23px); margin:0; letter-spacing:-.01em}
+.fbadge{font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+  padding:3px 9px; border-radius:999px; border:1px solid var(--nc,var(--coral)); color:var(--nc,var(--coral)); white-space:nowrap}
+.prob{color:var(--mut); font-size:14px; margin:3px 0 0}
+.prob b{color:var(--coral2); font-weight:600}
+.idea{color:var(--ink); font-size:14.5px; margin:9px 0 0; padding-left:13px; border-left:2px solid var(--nc,var(--coral))}
+.idea b{color:var(--nc,var(--coral)); font-weight:600}
+.linkdemo{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--phos); margin-top:10px;
+  display:inline-block; border:1px dashed rgba(158,240,122,.4); border-radius:8px; padding:6px 10px}
+.linkdemo a{color:var(--phos); text-decoration:none; border-bottom:1px dotted var(--phos)}
+.mapbox svg{width:100%; height:auto; display:block; margin-top:4px}
+.maplegend{display:flex; flex-wrap:wrap; gap:7px 16px; margin-top:12px;
+  font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--mut)}
+.maplegend span{display:flex; align-items:center; gap:7px}
+.maplegend i{width:10px; height:10px; border-radius:50%; flex:0 0 auto}
+footer{padding:46px 0 70px; color:var(--dim); font-size:13px; border-top:1px solid var(--line); margin-top:34px}
+footer .mono{color:var(--mut)}
+a{color:var(--coral2)}
+.hl{color:var(--teal)} .hc{color:var(--coral2)}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="kicker">Apprentissage par Renforcement Profond · IV</div>
+  <h1>L'agent qui apprend à <em>tenir en équilibre</em><br>sous vos yeux.</h1>
+  <p class="sub">Un réseau de neurones <b class="hc">DQN</b>, entraîné en direct dans votre navigateur, sur l'environnement CartPole. Le <b class="hl">Replay Buffer</b> et le <b class="hl">Target Network</b> de vos notes ne sont pas illustrés&nbsp;: ils tournent réellement, ici, maintenant.</p>
+  <div class="meta">
+    <span class="tag">Module <b>Deep RL</b></span>
+    <span class="tag">Algorithme&nbsp;: <b>DQN</b></span>
+    <span class="tag">Net&nbsp;: <b>4→24→24→2</b></span>
+    <span class="tag">Optimiseur&nbsp;: <b>Adam</b></span>
+    <span class="tag">100% navigateur · 0 librairie</span>
+  </div>
+</header>
+
+<!-- ===== LIVE LAB ===== -->
+<section style="border-top:none; margin-top:6px">
+  <div class="snum">01 — DÉMONSTRATION EN DIRECT</div>
+  <h2>Le laboratoire DQN</h2>
+  <p class="lead">Appuyez sur <b>Démarrer</b>. Au début, l'agent agit au hasard (ε élevé) et le mât tombe vite. À mesure que le Replay Buffer se remplit et que le Target Network se synchronise, la courbe d'apprentissage décolle.</p>
+
+  <div class="lab">
+    <div class="lab-bar">
+      <span class="dot" style="background:#e8775f"></span>
+      <span class="dot" style="background:#f2c14e"></span>
+      <span class="dot" style="background:#54d6c0"></span>
+      <span class="lab-title">dqn_cartpole.live</span>
+      <span class="lab-live">ÉTAT <span class="blink" id="blink"></span> <span id="statusTxt">au repos</span></span>
+    </div>
+    <div class="lab-grid">
+      <div class="pane left">
+        <p class="cv-cap">Environnement · CartPole-v1</p>
+        <canvas id="env" width="520" height="300"></canvas>
+        <div class="ctrls">
+          <button class="primary" id="run">▶ Démarrer</button>
+          <button id="reset">↻ Réinitialiser</button>
+          <div class="speed">VITESSE <input type="range" id="speed" min="1" max="20" value="6"><span id="spv" class="mono">6×</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Épisode</div><div class="v" id="ep">0</div></div>
+          <div class="stat"><div class="k">Survie (pas)</div><div class="v" id="rew">0</div></div>
+          <div class="stat"><div class="k">Record</div><div class="v" id="best">0</div></div>
+          <div class="stat"><div class="k">Moyenne 20</div><div class="v" id="avg">0</div></div>
+          <div class="stat"><div class="k">ε exploration</div><div class="v" id="eps">1.00</div></div>
+          <div class="stat"><div class="k">Pas totaux</div><div class="v" id="tot">0</div></div>
+        </div>
+        <div class="bufwrap">
+          <div class="k"><span>Replay Buffer</span><span id="bufn">0 / 10000</span></div>
+          <div class="bufbar"><div class="buffill" id="buffill"></div></div>
+        </div>
+        <div class="sync" id="sync">Target Network — en attente de synchronisation</div>
+      </div>
+      <div class="pane">
+        <p class="cv-cap">Courbe d'apprentissage · récompense par épisode</p>
+        <canvas id="chart" width="520" height="300"></canvas>
+        <p style="color:var(--dim); font-size:12.5px; margin:12px 2px 0">
+          <span style="color:var(--coral)">●</span> récompense de l'épisode &nbsp;·&nbsp;
+          <span style="color:var(--phos)">●</span> moyenne mobile (20)<br>
+          <span class="mono" style="font-size:11px">Le « plat » initial est normal&nbsp;: l'entraînement ne démarre qu'une fois le buffer suffisamment rempli.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== JOURNEY (8 CHAPITRES) ===== -->
+<section>
+  <div class="snum">02 — LE PARCOURS</div>
+  <h2>Huit chapitres, une seule idée qui grandit</h2>
+  <p class="lead">Chaque méthode du Deep RL est née pour réparer la faiblesse de la précédente. Voici le fil complet — du tout premier mur jusqu'au contrôle continu moderne.</p>
+
+  <div class="journey">
+
+    <!-- 1 -->
+    <div class="chap acc-coral">
+      <div class="node">1</div>
+      <div class="box">
+        <svg class="glyph" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <rect x="6" y="10" width="30" height="30" rx="2"/>
+          <line x1="16" y1="10" x2="16" y2="40"/><line x1="26" y1="10" x2="26" y2="40"/>
+          <line x1="6" y1="20" x2="36" y2="20"/><line x1="6" y1="30" x2="36" y2="30"/>
+          <line x1="40" y1="24" x2="52" y2="24" stroke-dasharray="2 3" opacity=".55"/>
+          <line x1="40" y1="32" x2="52" y2="32" stroke-dasharray="2 3" opacity=".55"/>
+          <text x="42" y="54" font-size="16" stroke="none" fill="currentColor" font-family="JetBrains Mono, monospace">∞</text>
+        </svg>
+        <div class="chead"><h3>Pourquoi le Deep RL ?</h3><span class="fbadge">le mur</span></div>
+        <p class="prob">En RL classique, chaque valeur Q(s,a) vit dans une <b>table</b>. Dès que les états deviennent continus ou immenses — les pixels d'un jeu, les capteurs d'un robot — la table <b>explose</b> et devient impossible à remplir.</p>
+        <p class="idea">→ Et si une <b>fonction apprise</b> remplaçait la table&nbsp;? C'est tout le « Deep » du Deep&nbsp;RL.</p>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="chap acc-teal">
+      <div class="node">2</div>
+      <div class="box">
+        <svg class="glyph" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4">
+          <g opacity=".4">
+            <line x1="14" y1="22" x2="32" y2="14"/><line x1="14" y1="22" x2="32" y2="32"/><line x1="14" y1="22" x2="32" y2="50"/>
+            <line x1="14" y1="42" x2="32" y2="14"/><line x1="14" y1="42" x2="32" y2="32"/><line x1="14" y1="42" x2="32" y2="50"/>
+            <line x1="32" y1="14" x2="50" y2="22"/><line x1="32" y1="32" x2="50" y2="22"/><line x1="32" y1="50" x2="50" y2="22"/>
+            <line x1="32" y1="14" x2="50" y2="42"/><line x1="32" y1="32" x2="50" y2="42"/><line x1="32" y1="50" x2="50" y2="42"/>
+          </g>
+          <g fill="currentColor" stroke="none">
+            <circle cx="14" cy="22" r="3.3"/><circle cx="14" cy="42" r="3.3"/>
+            <circle cx="32" cy="14" r="3.3"/><circle cx="32" cy="32" r="3.3"/><circle cx="32" cy="50" r="3.3"/>
+            <circle cx="50" cy="22" r="3.3"/><circle cx="50" cy="42" r="3.3"/>
+          </g>
+        </svg>
+        <div class="chead"><h3>Approximation</h3><span class="fbadge">le pont</span></div>
+        <p class="prob">Une table <b>mémorise</b>, elle ne généralise pas&nbsp;: un état jamais vu = aucune réponse.</p>
+        <p class="idea">→ Un <b>réseau de neurones</b> approxime Q(s,a) <i>ou</i> π(a|s). Entrée = l'état, sortie = des valeurs ou des probabilités d'actions. Des états proches donnent des décisions proches&nbsp;: voilà le pont entre deep learning et RL.</p>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="chap acc-coral">
+      <div class="node">3</div>
+      <div class="box">
+        <svg class="glyph" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="10" y1="52" x2="54" y2="52"/>
+          <rect x="13" y="34" width="9" height="18" rx="1.5" fill="currentColor" opacity=".3" stroke="none"/>
+          <rect x="27" y="18" width="9" height="34" rx="1.5" fill="currentColor" stroke="none"/>
+          <rect x="41" y="40" width="9" height="12" rx="1.5" fill="currentColor" opacity=".3" stroke="none"/>
+          <path d="M27.5 12 l4 4 l4 -4"/>
+        </svg>
+        <div class="chead"><h3>DQN — Value-Based</h3><span class="fbadge">valeur</span></div>
+        <p class="prob">Approximer une valeur ne suffit pas&nbsp;: entraîner un réseau sur des transitions corrélées <b>diverge</b>.</p>
+        <p class="idea">→ On approxime <b>Q(s,a)</b>, on agit par <b>argmax</b>, et on stabilise avec <b>Replay Buffer + Target Network</b>. Limite&nbsp;: argmax impose des actions <b style="color:var(--coral2)">discrètes</b> — pas de volant qui tourne en continu.</p>
+        <span class="linkdemo">▲ C'est exactement l'agent qui tourne dans <a href="#" onclick="document.querySelector('.lab').scrollIntoView({behavior:'smooth'});return false;">le laboratoire en haut de page</a>.</span>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="chap acc-teal">
+      <div class="node">4</div>
+      <div class="box">
+        <svg class="glyph" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 48 C20 48 22 18 32 18 C42 18 44 48 56 48"/>
+          <line x1="9" y1="48" x2="55" y2="48" opacity=".45"/>
+          <path d="M32 42 v-16 M27 31 l5 -5 l5 5"/>
+        </svg>
+        <div class="chead"><h3>Policy Gradient</h3><span class="fbadge">politique</span></div>
+        <p class="prob">DQN ne sait choisir qu'entre des actions <b>discrètes</b>. Comment piloter un volant, un couple moteur, une articulation&nbsp;?</p>
+        <p class="idea">→ On apprend <b>directement la politique</b> π(a|s), une distribution sur les actions. On remonte le gradient pour augmenter la probabilité des actions récompensées (REINFORCE). Le continu devient naturel — mais au prix d'une <b style="color:var(--coral2)">forte variance</b>.</p>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="chap acc-phos">
+      <div class="node">5</div>
+      <div class="box">
+        <svg class="glyph" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="22" width="20" height="20" rx="3"/>
+          <rect x="38" y="22" width="20" height="20" rx="3"/>
+          <text x="12.5" y="36" font-size="11" stroke="none" fill="currentColor" font-family="JetBrains Mono, monospace">A</text>
+          <text x="44.5" y="36" font-size="11" stroke="none" fill="currentColor" font-family="JetBrains Mono, monospace">C</text>
+          <path d="M27 28 h10 M34 25 l3 3 l-3 3"/>
+          <path d="M37 38 h-10 M30 35 l-3 3 l3 3"/>
+        </svg>
+        <div class="chead"><h3>Actor-Critic — Hybrid</h3><span class="fbadge">hybride</span></div>
+        <p class="prob">Le policy gradient pur apprend lentement et sa variance est énorme.</p>
+        <p class="idea">→ Deux réseaux&nbsp;: un <b>Acteur</b> (politique) décide, un <b>Critique</b> (valeur) juge. Le critique fournit l'<b>avantage</b> (A = Q − V), un signal d'apprentissage à faible variance pour l'acteur.</p>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="chap acc-phos">
+      <div class="node">6</div>
+      <div class="box">
+        <svg class="glyph" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="20" x2="56" y2="20" stroke-dasharray="3 3" opacity=".5"/>
+          <line x1="8" y1="44" x2="56" y2="44" stroke-dasharray="3 3" opacity=".5"/>
+          <path d="M8 50 L26 20 L46 20 L56 38"/>
+        </svg>
+        <div class="chead"><h3>PPO — Standard</h3><span class="fbadge">stable</span></div>
+        <p class="prob">Dans l'actor-critic, une mise à jour trop brutale de la politique peut <b>tout faire s'effondrer</b>.</p>
+        <p class="idea">→ Le <b>clipping</b> borne l'écart entre l'ancienne et la nouvelle politique&nbsp;: des pas sûrs, une stabilité remarquable. Simple et robuste, PPO est devenu le <b>standard de l'industrie</b>.</p>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="chap acc-amber">
+      <div class="node">7</div>
+      <div class="box">
+        <svg class="glyph" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 22 Q20 8 32 22 T56 22"/>
+          <line x1="10" y1="44" x2="54" y2="44"/>
+          <circle cx="38" cy="44" r="5" fill="currentColor" stroke="none"/>
+        </svg>
+        <div class="chead"><h3>Actions continues</h3><span class="fbadge">contrôle continu</span></div>
+        <p class="prob">Pour la robotique et le contrôle fin, on veut le <b>continu</b> <i>et</i> l'efficacité en données de l'off-policy.</p>
+        <p class="idea">→ <b>TD3</b> ajoute un double critique pour réduire la <b>surestimation</b> des valeurs Q. <b>SAC</b> maximise récompense <b>+ entropie</b>&nbsp;: l'agent reste curieux, explore mieux, et devient très robuste.</p>
+      </div>
+    </div>
+
+    <!-- 8 -->
+    <div class="chap acc-coral">
+      <div class="node">8</div>
+      <div class="box">
+        <div class="chead"><h3>Comparatif global</h3><span class="fbadge">la carte</span></div>
+        <p class="prob">Toute la famille sur deux axes&nbsp;: <b style="color:var(--ink)">quoi apprendre</b> (valeur ↔ politique) et <b style="color:var(--ink)">quel type d'actions</b> (discret ↔ continu). Le tracé pointillé suit le parcours des 8&nbsp;chapitres.</p>
+        <div class="mapbox">
+          <svg viewBox="0 0 600 420" xmlns="http://www.w3.org/2000/svg">
+            <!-- axes -->
+            <line x1="315" y1="38" x2="315" y2="366" stroke="#243042" stroke-width="1.5"/>
+            <line x1="70" y1="202" x2="560" y2="202" stroke="#243042" stroke-width="1.5"/>
+            <!-- axis arrowheads -->
+            <path d="M315 38 l-4 7 l8 0 z" fill="#243042"/>
+            <path d="M315 366 l-4 -7 l8 0 z" fill="#243042"/>
+            <path d="M560 202 l-7 -4 l0 8 z" fill="#243042"/>
+            <path d="M70 202 l7 -4 l0 8 z" fill="#243042"/>
+            <!-- axis labels -->
+            <text x="315" y="26" text-anchor="middle" fill="#8c9bb0" font-family="JetBrains Mono, monospace" font-size="12" letter-spacing="1.5">ACTIONS CONTINUES</text>
+            <text x="315" y="392" text-anchor="middle" fill="#8c9bb0" font-family="JetBrains Mono, monospace" font-size="12" letter-spacing="1.5">ACTIONS DISCRÈTES</text>
+            <text x="74" y="218" text-anchor="start" fill="#8c9bb0" font-family="JetBrains Mono, monospace" font-size="12" letter-spacing="1.5">BASÉ VALEUR</text>
+            <text x="556" y="218" text-anchor="end" fill="#8c9bb0" font-family="JetBrains Mono, monospace" font-size="12" letter-spacing="1.5">BASÉ POLITIQUE</text>
+            <!-- evolution path -->
+            <path d="M129 320 L315 227 L393 200 L344 61" fill="none" stroke="#5d6b80" stroke-width="1.5" stroke-dasharray="4 5" opacity=".55"/>
+            <!-- points -->
+            <g font-family="JetBrains Mono, monospace" font-size="13" font-weight="700">
+              <circle cx="129" cy="320" r="13" fill="#e8775f" opacity=".15"/><circle cx="129" cy="320" r="7" fill="#e8775f" stroke="#0a0d12" stroke-width="2"/>
+              <text x="144" y="324" fill="#e8edf4">DQN</text>
+              <circle cx="511" cy="147" r="13" fill="#54d6c0" opacity=".15"/><circle cx="511" cy="147" r="7" fill="#54d6c0" stroke="#0a0d12" stroke-width="2"/>
+              <text x="498" y="140" text-anchor="end" fill="#e8edf4">Policy&#160;Gradient</text>
+              <circle cx="315" cy="227" r="13" fill="#9ef07a" opacity=".15"/><circle cx="315" cy="227" r="7" fill="#9ef07a" stroke="#0a0d12" stroke-width="2"/>
+              <text x="322" y="244" fill="#e8edf4">A2C</text>
+              <circle cx="393" cy="200" r="13" fill="#9ef07a" opacity=".15"/><circle cx="393" cy="200" r="7" fill="#9ef07a" stroke="#0a0d12" stroke-width="2"/>
+              <text x="406" y="195" fill="#e8edf4">PPO</text>
+              <circle cx="266" cy="87" r="13" fill="#f2c14e" opacity=".15"/><circle cx="266" cy="87" r="7" fill="#f2c14e" stroke="#0a0d12" stroke-width="2"/>
+              <text x="281" y="91" fill="#e8edf4">TD3</text>
+              <circle cx="344" cy="61" r="13" fill="#f2c14e" opacity=".15"/><circle cx="344" cy="61" r="7" fill="#f2c14e" stroke="#0a0d12" stroke-width="2"/>
+              <text x="359" y="65" fill="#e8edf4">SAC</text>
+            </g>
+          </svg>
+          <div class="maplegend">
+            <span><i style="background:#e8775f"></i>Basé valeur · DQN</span>
+            <span><i style="background:#54d6c0"></i>Basé politique · Policy Gradient</span>
+            <span><i style="background:#9ef07a"></i>Hybride / Actor-Critic · A2C, PPO</span>
+            <span><i style="background:#f2c14e"></i>Continu off-policy · TD3, SAC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== COMPONENTS ===== -->
+<section>
+  <div class="snum">03 — LES PIÈCES DU DQN</div>
+  <h2>Pourquoi ça marche&nbsp;: deux idées clés</h2>
+  <p class="lead">Un DQN n'est « qu'un » réseau qui approxime Q(s,a). Mais entraîner naïvement un réseau sur des transitions corrélées diverge. Vos notes pointent les deux remèdes que la démo utilise réellement.</p>
+  <div class="cmap">
+    <div class="card t">
+      <span class="badge">MÉMOIRE D'EXPÉRIENCES</span>
+      <h3>Replay Buffer</h3>
+      <p>On stocke chaque transition <span class="eq">(s, a, r, s')</span> dans une mémoire circulaire. À chaque pas, on ré-échantillonne un mini-lot aléatoire. Cela <b style="color:var(--ink)">casse la corrélation temporelle</b> entre observations successives et permet de réutiliser une même expérience plusieurs fois — c'est aussi ce qui rend DQN <i>off-policy</i>.</p>
+    </div>
+    <div class="card p">
+      <span class="badge">RÉSEAU CIBLE FIGÉ</span>
+      <h3>Target Network</h3>
+      <p>Un second réseau, copie périodique du principal, sert à calculer la cible. Comme il <b style="color:var(--ink)">change moins souvent</b>, la cible ne « bouge » pas à chaque pas&nbsp;: on minimise les oscillations et l'instabilité de la <i>loss</i>. Dans la démo, regardez l'encadré « Target Network » clignoter à chaque synchronisation.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:22px">
+    <p class="cv-cap" style="margin-bottom:12px">Boucle d'entraînement DQN</p>
+    <div class="steps">
+      <div class="step"><b>Observer & agir.</b>&nbsp;<span>On lit l'état s, on choisit une action en <i>ε-greedy</i> (aléatoire avec proba ε, sinon argmax Q).</span></div>
+      <div class="step"><b>Mémoriser.</b>&nbsp;<span>La transition <span class="eq">(s, a, r, s')</span> est rangée dans le Replay Buffer.</span></div>
+      <div class="step"><b>Échantillonner.</b>&nbsp;<span>On tire un mini-lot aléatoire de transitions passées.</span></div>
+      <div class="step"><b>Cible.</b>&nbsp;<span>Pour chaque transition&nbsp;: <span class="eq">y = r + γ · max Q_target(s', a')</span></span></div>
+      <div class="step"><b>Optimiser.</b>&nbsp;<span>Descente de gradient pour minimiser <span class="eq">( Q(s,a) − y )²</span> (perte de Huber).</span></div>
+      <div class="step"><b>Synchroniser.</b>&nbsp;<span>Périodiquement, on copie le réseau principal dans le Target Network. Retour à l'étape 1.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FAMILIES ===== -->
+<section>
+  <div class="snum">04 — PANORAMA</div>
+  <h2>Les trois familles du Deep RL</h2>
+  <p class="lead">Le tableau comparatif de votre cours, remis au propre. DQN n'est qu'une porte d'entrée&nbsp;: à droite, le compromis <i>stabilité / variance</i> qui motive toutes les méthodes modernes.</p>
+  <table class="famt">
+    <tr><th>Algorithme / Famille</th><th>Type d'apprentissage</th><th>Espace d'actions</th><th>Stabilité & convergence</th></tr>
+    <tr>
+      <td><b>DQN</b><br>Deep Q-Network</td>
+      <td>Basé sur la <span class="hc">valeur</span></td>
+      <td>Discret uniquement</td>
+      <td>Instable sans Replay Buffer, mais généralement convergent.</td>
+    </tr>
+    <tr>
+      <td><b>Policy Network</b></td>
+      <td>Basé sur la <span class="hc">politique</span></td>
+      <td>Discret ou continu</td>
+      <td>Forte variance, convergence locale, nécessite de nombreux échantillons.</td>
+    </tr>
+    <tr>
+      <td><b>Deep Actor-Critic</b></td>
+      <td><span class="hl">Hybride</span> (politique + valeur)</td>
+      <td>Discret ou continu</td>
+      <td>Plus stable&nbsp;: variance réduite grâce à l'estimation de l'avantage.</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ===== VALUE vs POLICY ===== -->
+<section>
+  <div class="snum">05 — DEUX MANIÈRES DE DÉCIDER</div>
+  <h2>Réseau de valeur vs réseau de politique</h2>
+  <div class="cols">
+    <div class="col">
+      <h3>Value Network</h3>
+      <span class="ex">→ DQN</span>
+      <ul>
+        <li>Estime la valeur <span class="eq">Q(s,a)</span> de chaque action.</li>
+        <li>On agit en choisissant la valeur Q maximale.</li>
+        <li>Naturellement adapté aux actions <b>discrètes</b>.</li>
+        <li>« Q-learning » profond&nbsp;: on modélise la qualité d'un couple état-action.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Policy Network</h3>
+      <span class="ex">→ PPO, REINFORCE</span>
+      <ul>
+        <li>Sort directement une <b>distribution de probabilité</b> sur les actions.</li>
+        <li>Objectif&nbsp;: augmenter la probabilité des bonnes actions.</li>
+        <li>Gère les espaces d'actions <b>continus</b>.</li>
+        <li>Limite&nbsp;: convergence lente, forte variance des gradients.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ON/OFF POLICY ===== -->
+<section>
+  <div class="snum">06 — D'OÙ VIENT LA DONNÉE ?</div>
+  <h2>On-policy vs Off-policy</h2>
+  <p class="lead">Question centrale&nbsp;: l'agent apprend-il à partir de la politique <i>qu'il utilise en ce moment</i>, ou à partir d'expériences anciennes&nbsp;?</p>
+  <div class="cols">
+    <div class="col">
+      <h3>On-policy</h3>
+      <span class="ex">exemple&nbsp;: PPO</span>
+      <ul>
+        <li>Apprend à partir de la <b>politique actuelle</b>.</li>
+        <li>Améliore la même politique que celle qui génère les actions.</li>
+        <li>Pas de réutilisation massive du passé&nbsp;: plus coûteux en données.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Off-policy</h3>
+      <span class="ex">exemple&nbsp;: DQN</span>
+      <ul>
+        <li>Apprend à partir d'<b>expériences passées</b>, via le Replay Buffer.</li>
+        <li>Utilise des données collectées par une politique plus ancienne.</li>
+        <li>Très efficace en données — c'est ce que fait la démo ci-dessus.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ACTOR-CRITIC + MODERN ===== -->
+<section>
+  <div class="snum">07 — LA SYNTHÈSE</div>
+  <h2>Actor-Critic et les méthodes modernes</h2>
+  <p class="lead">L'idée hybride&nbsp;: un <b>acteur</b> (politique) propose les actions, un <b>critique</b> (valeur) les juge. On calcule l'erreur — l'<i>avantage</i> — entre la récompense obtenue et la prédiction du critique. Résultat&nbsp;: la variance chute, l'apprentissage se stabilise.</p>
+  <div class="mm">
+    <div class="card a">
+      <span class="badge">ACTOR-CRITIC · STANDARD INDUSTRIEL</span>
+      <h3>PPO</h3>
+      <p>Acteur = politique, critique = valeur. La technique de <b style="color:var(--ink)">clipping</b> empêche des mises à jour trop brutales de la politique&nbsp;: c'est ce qui lui donne sa stabilité réputée.</p>
+      <div class="chips"><span class="chip">on-policy</span><span class="chip">clipping</span><span class="chip">stable</span></div>
+    </div>
+    <div class="card">
+      <span class="badge">ACTOR-CRITIC · ACTIONS CONTINUES</span>
+      <h3>A2C / A3C</h3>
+      <p>Versions « advantage » de l'acteur-critique. On entraîne en parallèle politique et valeur, l'avantage servant de signal d'apprentissage à faible variance.</p>
+      <div class="chips"><span class="chip">avantage</span><span class="chip">policy + value</span></div>
+    </div>
+    <div class="card t">
+      <span class="badge">VALEUR + POLITIQUE · CONTINU</span>
+      <h3>TD3</h3>
+      <p>Critique double + acteur, conçu pour <b style="color:var(--ink)">réduire la surestimation</b> des valeurs Q. Plus stable que ses prédécesseurs sur les tâches de contrôle continu.</p>
+      <div class="chips"><span class="chip">off-policy</span><span class="chip">double critic</span><span class="chip">anti-overestimation</span></div>
+    </div>
+    <div class="card p">
+      <span class="badge">EXPLORATION PAR ENTROPIE · CONTINU</span>
+      <h3>SAC</h3>
+      <p>Maximise non seulement la récompense mais aussi l'<b style="color:var(--ink)">entropie</b> de la politique&nbsp;: l'agent reste curieux. Replay Buffer + exploration riche = très robuste.</p>
+      <div class="chips"><span class="chip">off-policy</span><span class="chip">reward + entropie</span><span class="chip">replay buffer</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="mono">Deep RL Explorer · DQN entraîné en temps réel (Replay Buffer + Target Network + Adam, écrit à la main en JavaScript).</div>
+  Réseau 4→24→24→2 · γ=0,99 · ε décroissant 1,00→0,02 · lot 32 · synchro cible toutes 800 étapes.
+  Le contenu pédagogique reprend la structure de vos notes du module Deep RL.
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ===================== RNG ===================== */
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+/* ===================== Dense layer (Adam) ===================== */
+class Dense{
+  constructor(nIn,nOut,act){
+    this.nIn=nIn;this.nOut=nOut;this.act=act;
+    const sc=Math.sqrt(2/nIn);
+    this.W=[];this.b=new Float64Array(nOut);
+    this.mW=[];this.vW=[];this.mb=new Float64Array(nOut);this.vb=new Float64Array(nOut);
+    for(let o=0;o<nOut;o++){
+      const r=new Float64Array(nIn);
+      for(let i=0;i<nIn;i++)r[i]=randn()*sc;
+      this.W.push(r);this.mW.push(new Float64Array(nIn));this.vW.push(new Float64Array(nIn));
+    }
+  }
+  forward(x){
+    this.lastIn=x;
+    const z=new Float64Array(this.nOut);
+    for(let o=0;o<this.nOut;o++){let s=this.b[o];const r=this.W[o];
+      for(let i=0;i<this.nIn;i++)s+=r[i]*x[i];z[o]=s;}
+    this.lastZ=z;
+    if(this.act==='relu'){const a=new Float64Array(this.nOut);
+      for(let o=0;o<this.nOut;o++)a[o]=z[o]>0?z[o]:0;return a;}
+    return z;
+  }
+  backward(gOut,gW,gb){
+    let g=gOut;
+    if(this.act==='relu'){g=new Float64Array(this.nOut);
+      for(let o=0;o<this.nOut;o++)g[o]=this.lastZ[o]>0?gOut[o]:0;}
+    const gIn=new Float64Array(this.nIn);
+    for(let o=0;o<this.nOut;o++){const go=g[o];gb[o]+=go;
+      const r=this.W[o],gr=gW[o];
+      for(let i=0;i<this.nIn;i++){gr[i]+=go*this.lastIn[i];gIn[i]+=go*r[i];}}
+    return gIn;
+  }
+}
+class MLP{
+  constructor(sz){this.layers=[];this.t=0;
+    for(let i=0;i<sz.length-1;i++)
+      this.layers.push(new Dense(sz[i],sz[i+1],i<sz.length-2?'relu':'linear'));}
+  forward(x){let a=x;for(const l of this.layers)a=l.forward(a);return a;}
+  copyFrom(o){for(let li=0;li<this.layers.length;li++){const A=this.layers[li],B=o.layers[li];
+    for(let oo=0;oo<A.nOut;oo++){A.b[oo]=B.b[oo];for(let i=0;i<A.nIn;i++)A.W[oo][i]=B.W[oo][i];}}}
+  zeroGrads(){return this.layers.map(l=>({gW:l.W.map(()=>new Float64Array(l.nIn)),gb:new Float64Array(l.nOut)}));}
+  adam(g,lr,bs){this.t++;const b1=.9,b2=.999,e=1e-8,c1=1-Math.pow(b1,this.t),c2=1-Math.pow(b2,this.t);
+    for(let li=0;li<this.layers.length;li++){const l=this.layers[li],gW=g[li].gW,gb=g[li].gb;
+      for(let o=0;o<l.nOut;o++){
+        let gg=gb[o]/bs;l.mb[o]=b1*l.mb[o]+(1-b1)*gg;l.vb[o]=b2*l.vb[o]+(1-b2)*gg*gg;
+        l.b[o]-=lr*(l.mb[o]/c1)/(Math.sqrt(l.vb[o]/c2)+e);
+        const r=l.W[o],mr=l.mW[o],vr=l.vW[o],gr=gW[o];
+        for(let i=0;i<l.nIn;i++){let gw=gr[i]/bs;mr[i]=b1*mr[i]+(1-b1)*gw;vr[i]=b2*vr[i]+(1-b2)*gw*gw;
+          r[i]-=lr*(mr[i]/c1)/(Math.sqrt(vr[i]/c2)+e);}}}}
+}
+
+/* ===================== CartPole ===================== */
+class CartPole{
+  constructor(){this.g=9.8;this.mc=1;this.mp=.1;this.tm=1.1;this.len=.5;this.pml=.05;
+    this.fm=10;this.tau=.02;this.thT=12*Math.PI/180;this.xT=2.4;this.reset();}
+  reset(){this.x=(Math.random()-.5)*.1;this.xd=(Math.random()-.5)*.1;
+    this.th=(Math.random()-.5)*.1;this.thd=(Math.random()-.5)*.1;this.steps=0;return this.state();}
+  state(){return [this.x/2.4,this.xd/3,this.th/.21,this.thd/3];}
+  step(a){const f=a===1?this.fm:-this.fm;const ct=Math.cos(this.th),st=Math.sin(this.th);
+    const tmp=(f+this.pml*this.thd*this.thd*st)/this.tm;
+    const tha=(this.g*st-ct*tmp)/(this.len*(4/3-this.mp*ct*ct/this.tm));
+    const xa=tmp-this.pml*tha*ct/this.tm;
+    this.x+=this.tau*this.xd;this.xd+=this.tau*xa;this.th+=this.tau*this.thd;this.thd+=this.tau*tha;
+    this.steps++;
+    const done=this.x<-this.xT||this.x>this.xT||this.th<-this.thT||this.th>this.thT||this.steps>=500;
+    return {state:this.state(),reward:1,done};}
+}
+
+/* ===================== DQN agent ===================== */
+class DQN{
+  constructor(){this.on=new MLP([4,24,24,2]);this.tg=new MLP([4,24,24,2]);this.tg.copyFrom(this.on);
+    this.buf=[];this.cap=10000;this.gamma=.99;this.batch=32;this.lr=.0008;
+    this.eps=1;this.epsMin=.02;this.epsDecay=.99;this.sync=800;this.ls=0;this.synced=false;}
+  act(s){if(Math.random()<this.eps)return Math.random()<.5?0:1;
+    const q=this.on.forward(s);return q[0]>=q[1]?0:1;}
+  remember(s,a,r,ns,d){this.buf.push([s,a,r,ns,d]);if(this.buf.length>this.cap)this.buf.shift();}
+  train(){this.synced=false;if(this.buf.length<1000)return;
+    const g=this.on.zeroGrads();
+    for(let b=0;b<this.batch;b++){
+      const [s,a,r,ns,d]=this.buf[(Math.random()*this.buf.length)|0];
+      const qt=this.tg.forward(ns);const mn=Math.max(qt[0],qt[1]);
+      const y=d?r:r+this.gamma*mn;const q=this.on.forward(s);
+      const go=new Float64Array(2);let err=q[a]-y;
+      if(err>1)err=1;else if(err<-1)err=-1;go[a]=err;
+      let gr=go;for(let li=this.on.layers.length-1;li>=0;li--)gr=this.on.layers[li].backward(gr,g[li].gW,g[li].gb);
+    }
+    this.on.adam(g,this.lr,this.batch);this.ls++;
+    if(this.ls%this.sync===0){this.tg.copyFrom(this.on);this.synced=true;}
+  }
+}
+
+/* ===================== Live loop + render ===================== */
+const env=new CartPole();
+let agent=new DQN();
+let state=env.reset();
+let running=false, epReward=0, episode=0, best=0, totalSteps=0;
+const history=[];
+
+const $=id=>document.getElementById(id);
+const envCv=$('env'), envCtx=envCv.getContext('2d');
+const chCv=$('chart'), chCtx=chCv.getContext('2d');
+
+/* HiDPI setup */
+function fit(cv,ctx){const r=cv.getBoundingClientRect();const dpr=window.devicePixelRatio||1;
+  cv.width=r.width*dpr;cv.height=(cv===envCv?300:300)*dpr;cv.style.height='300px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);return {w:r.width,h:300};}
+let envDim=fit(envCv,envCtx), chDim=fit(chCv,chCtx);
+window.addEventListener('resize',()=>{envDim=fit(envCv,envCtx);chDim=fit(chCv,chCtx);drawChart();drawEnv();});
+
+const C={bg:'#0a0d12',track:'#243042',cart:'#e8775f',pole:'#54d6c0',tip:'#9ef07a',
+  grid:'#192231',coral:'#e8775f',phos:'#9ef07a',mut:'#5d6b80',ink:'#e8edf4'};
+
+function drawEnv(){
+  const w=envDim.w,h=envDim.h;envCtx.clearRect(0,0,w,h);
+  envCtx.fillStyle=C.bg;envCtx.fillRect(0,0,w,h);
+  // ground/track
+  const gy=h*0.72;
+  envCtx.strokeStyle=C.track;envCtx.lineWidth=2;
+  envCtx.beginPath();envCtx.moveTo(20,gy);envCtx.lineTo(w-20,gy);envCtx.stroke();
+  // ticks
+  envCtx.fillStyle=C.grid;
+  for(let i=0;i<=8;i++){const tx=20+(w-40)*i/8;envCtx.fillRect(tx,gy,1,8);}
+  // map cart x in [-2.4,2.4] -> pixels
+  const margin=70, span=w-2*margin;
+  const cx=w/2 + (env.x/2.4)*(span/2);
+  const cw=58, ch=26;
+  // cart
+  envCtx.fillStyle=C.cart;
+  roundRect(envCtx,cx-cw/2,gy-ch,cw,ch,5);envCtx.fill();
+  // wheels
+  envCtx.fillStyle='#0a0d12';
+  envCtx.beginPath();envCtx.arc(cx-cw/4,gy,5,0,7);envCtx.arc(cx+cw/4,gy,5,0,7);envCtx.fill();
+  // pole
+  const pl=120;
+  const px=cx, py=gy-ch;
+  const ex=px+Math.sin(env.th)*pl, ey=py-Math.cos(env.th)*pl;
+  envCtx.strokeStyle=C.pole;envCtx.lineWidth=7;envCtx.lineCap='round';
+  envCtx.beginPath();envCtx.moveTo(px,py);envCtx.lineTo(ex,ey);envCtx.stroke();
+  envCtx.fillStyle=C.tip;envCtx.beginPath();envCtx.arc(ex,ey,8,0,7);envCtx.fill();
+  // pivot
+  envCtx.fillStyle=C.ink;envCtx.beginPath();envCtx.arc(px,py,4,0,7);envCtx.fill();
+  // angle readout
+  envCtx.fillStyle=C.mut;envCtx.font='11px "JetBrains Mono",monospace';
+  envCtx.fillText('θ = '+(env.th*180/Math.PI).toFixed(1)+'°   x = '+env.x.toFixed(2)+' m',20,h-14);
+}
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
+  c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+
+function movingAvg(arr,k){const out=[];for(let i=0;i<arr.length;i++){
+  const s=Math.max(0,i-k+1);let sum=0;for(let j=s;j<=i;j++)sum+=arr[j];out.push(sum/(i-s+1));}return out;}
+
+function drawChart(){
+  const w=chDim.w,h=chDim.h;chCtx.clearRect(0,0,w,h);
+  chCtx.fillStyle=C.bg;chCtx.fillRect(0,0,w,h);
+  const pad={l:38,r:12,t:14,b:24};
+  const pw=w-pad.l-pad.r, ph=h-pad.t-pad.b;
+  const maxY=Math.max(50,...history,1);
+  const yMax=Math.ceil(maxY/50)*50;
+  const n=Math.max(history.length,1);
+  // grid + y labels
+  chCtx.strokeStyle=C.grid;chCtx.lineWidth=1;chCtx.fillStyle=C.mut;
+  chCtx.font='10px "JetBrains Mono",monospace';chCtx.textAlign='right';
+  for(let i=0;i<=4;i++){const yv=yMax*i/4;const py=pad.t+ph-ph*i/4;
+    chCtx.beginPath();chCtx.moveTo(pad.l,py);chCtx.lineTo(w-pad.r,py);chCtx.stroke();
+    chCtx.fillText(Math.round(yv),pad.l-6,py+3);}
+  chCtx.textAlign='left';chCtx.fillText('épisode',pad.l,h-6);
+  const X=i=>pad.l+(n<=1?0:pw*i/(n-1));
+  const Y=v=>pad.t+ph-ph*Math.min(v,yMax)/yMax;
+  if(history.length){
+    // raw points
+    chCtx.fillStyle=C.coral;
+    for(let i=0;i<history.length;i++){chCtx.beginPath();chCtx.arc(X(i),Y(history[i]),2,0,7);chCtx.fill();}
+    // raw line faint
+    chCtx.strokeStyle='rgba(232,119,95,.35)';chCtx.lineWidth=1;chCtx.beginPath();
+    history.forEach((v,i)=>i?chCtx.lineTo(X(i),Y(v)):chCtx.moveTo(X(i),Y(v)));chCtx.stroke();
+    // moving avg
+    const ma=movingAvg(history,20);
+    chCtx.strokeStyle=C.phos;chCtx.lineWidth=2.4;chCtx.beginPath();
+    ma.forEach((v,i)=>i?chCtx.lineTo(X(i),Y(v)):chCtx.moveTo(X(i),Y(v)));chCtx.stroke();
+  }else{
+    chCtx.fillStyle=C.mut;chCtx.font='12px "JetBrains Mono",monospace';chCtx.textAlign='center';
+    chCtx.fillText('en attente du premier épisode…',w/2,h/2);chCtx.textAlign='left';
+  }
+}
+
+function updateStats(){
+  $('ep').textContent=episode;
+  $('rew').textContent=epReward;
+  $('best').textContent=best;
+  const last=history.slice(-20);
+  const avg=last.length?(last.reduce((a,b)=>a+b,0)/last.length):0;
+  $('avg').innerHTML=avg.toFixed(0)+(history.length<20?' <small>('+history.length+')</small>':'');
+  $('eps').textContent=agent.eps.toFixed(2);
+  $('tot').textContent=totalSteps>=1000?(totalSteps/1000).toFixed(1)+'k':totalSteps;
+  const bn=agent.buf.length;
+  $('bufn').textContent=bn+' / '+agent.cap;
+  $('buffill').style.width=(100*bn/agent.cap)+'%';
+  const sync=$('sync');
+  if(bn<1000){sync.textContent='Target Network — entraînement en pause (buffer < 1000)';}
+  else{sync.textContent='Target Network — actif · synchro toutes les '+agent.sync+' étapes';}
+}
+function flashSync(){const s=$('sync');s.classList.add('flash');
+  s.textContent='⟳ Target Network synchronisé ← réseau principal';
+  setTimeout(()=>{s.classList.remove('flash');updateStats();},420);}
+
+let acc=0;
+function loop(){
+  if(running){
+    const speed=parseInt($('speed').value,10);
+    for(let k=0;k<speed;k++){
+      const a=agent.act(state);
+      const {state:ns,reward,done}=env.step(a);
+      agent.remember(state,a,reward,ns,done);
+      agent.train();
+      if(agent.synced)flashSync();
+      state=ns;epReward+=reward;totalSteps++;
+      if(done){
+        history.push(epReward);
+        if(epReward>best)best=epReward;
+        episode++;
+        if(agent.eps>agent.epsMin)agent.eps*=agent.epsDecay;
+        epReward=0;state=env.reset();
+        drawChart();
+      }
+    }
+    updateStats();
+  }
+  drawEnv();
+  requestAnimationFrame(loop);
+}
+
+/* controls */
+$('run').addEventListener('click',function(){
+  running=!running;
+  this.textContent=running?'⏸ Pause':'▶ Reprendre';
+  this.classList.toggle('primary',!running);
+  $('blink').classList.toggle('on',running);
+  $('statusTxt').textContent=running?'apprentissage…':'en pause';
+});
+$('reset').addEventListener('click',function(){
+  running=false;agent=new DQN();state=env.reset();
+  epReward=0;episode=0;best=0;totalSteps=0;history.length=0;
+  $('run').textContent='▶ Démarrer';$('run').classList.add('primary');
+  $('blink').classList.remove('on');$('statusTxt').textContent='au repos';
+  updateStats();drawChart();drawEnv();
+});
+$('speed').addEventListener('input',function(){$('spv').textContent=this.value+'×';});
+
+updateStats();drawChart();drawEnv();
+requestAnimationFrame(loop);
+</script>
