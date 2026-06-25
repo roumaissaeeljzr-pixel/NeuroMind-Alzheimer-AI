@@ -1,0 +1,54 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Streamlit/user-local files
+.streamlit/secrets.toml
+
+# Generated outputs and temporary files
+outputs/
+cnn_module/outputs/
+tmp/
+*.log
+
+# Patient uploads, reports, generated PDFs/images
+*_upload_*
+patient_report_*
+brain_scan_report_*
+speech_language_report_*
+combined_multimodal_report_*
+
+# Large trained model artifacts - use Git LFS or external storage instead
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Large/local datasets
+cnn_module/data/ADNI_SKULL_STRIPPED/
+*.nii
+*.nii.gz
+
+# Vector indexes and generated database-like artifacts
+nlp_rag_module/vector_store/
+cnn_module/vector_store/
+*.faiss
+*.index
+
+# IDE/local metadata
+.vscode/
+.idea/
+.agents/
+.codex/
