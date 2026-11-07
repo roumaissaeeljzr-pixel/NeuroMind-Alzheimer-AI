@@ -1,54 +1,42 @@
-# Secrets and local environment
+# Environnement et secrets
+.venv/
 .env
 .env.*
 !.env.example
-.venv/
-venv/
-env/
-
-# Python caches
 __pycache__/
-*.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Streamlit/user-local files
+*.pyc
 .streamlit/secrets.toml
 
-# Generated outputs and temporary files
-outputs/
-cnn_module/outputs/
-tmp/
-*.log
-
-# Patient uploads, reports, generated PDFs/images
-*_upload_*
-patient_report_*
-brain_scan_report_*
-speech_language_report_*
-combined_multimodal_report_*
-
-# Large trained model artifacts - use Git LFS or external storage instead
-*.pt
-*.pth
-*.ckpt
-*.safetensors
-
-# Large/local datasets
-cnn_module/data/ADNI_SKULL_STRIPPED/
+# Données médicales
 *.nii
 *.nii.gz
+*.cha
+*.csv
+*.xlsx
 
-# Vector indexes and generated database-like artifacts
-nlp_rag_module/vector_store/
-cnn_module/vector_store/
+# Modèles entraînés
+*.pth
+*.pt
+*.pkl
+*.safetensors
+
+# Résultats et fichiers générés
+outputs/
+tmp/
+cnn_module/outputs/
+cnn_module/data/
+nlp_rag_module/data/
+
+# Stockage local
+vector_store/
 *.faiss
-*.index
+*.db
+*.sqlite3
 
-# IDE/local metadata
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Fichiers locaux
 .vscode/
-.idea/
-.agents/
-.codex/
+*.log

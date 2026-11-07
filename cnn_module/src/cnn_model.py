@@ -271,3 +271,78 @@ class InflatedResNet3D(nn.Module):
         x = self.fc(x)
 
         return x
+
+
+class MultimodalInflatedResNet3D(nn.Module):
+    """
+    MRI backbone plus a small clinical-feature branch.
+
+    This matches checkpoints whose keys are structured as:
+    backbone.*, clinical_mlp.*, and classifier.*.
+    """
+
+    clinical_input_dim = 2
+
+    def __init__(self, num_classes: int = 2) -> None:
+        super().__init__()
+
+        self.backbone = InflatedResNet3D(num_classes=num_classes)
+        self.backbone.fc = nn.Identity()
+
+        self.clinical_mlp = nn.Sequential(
+            nn.Linear(self.clinical_input_dim, 32),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm1d(32),
+            nn.Dropout(0.2),
+            nn.Linear(32, 16),
+            nn.ReLU(inplace=True),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(512 + 16, 64),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.3),
+            nn.Linear(64, num_classes),
+        )
+
+    def _default_clinical_features(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(
+            (x.shape[0], self.clinical_input_dim),
+            dtype=x.dtype,
+            device=x.device,
+        )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        clinical_features: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        if clinical_features is None:
+            clinical_features = self._default_clinical_features(x)
+        elif not isinstance(clinical_features, torch.Tensor):
+            clinical_features = torch.tensor(
+                clinical_features,
+                dtype=x.dtype,
+                device=x.device,
+            )
+        else:
+            clinical_features = clinical_features.to(device=x.device, dtype=x.dtype)
+
+        if clinical_features.ndim == 1:
+            clinical_features = clinical_features.unsqueeze(0)
+
+        if clinical_features.shape[0] != x.shape[0]:
+            clinical_features = clinical_features.expand(x.shape[0], -1)
+
+        if clinical_features.shape[1] != self.clinical_input_dim:
+            raise ValueError(
+                "The multimodal MRI model expects exactly "
+                f"{self.clinical_input_dim} clinical features."
+            )
+
+        image_features = self.backbone(x)
+        clinical_features = self.clinical_mlp(clinical_features)
+        combined_features = torch.cat([image_features, clinical_features], dim=1)
+
+        return self.classifier(combined_features)

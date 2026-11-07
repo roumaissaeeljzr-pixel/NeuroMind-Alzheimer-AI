@@ -28,8 +28,10 @@ def get_target_layer(model: nn.Module) -> nn.Module:
     fallback when a more concentrated map is needed by a wrapped model.
     """
     possible_layers = (
+        lambda: model.backbone.layer3[-1].conv2,
         lambda: model.model.layer3[-1].conv2,
         lambda: model.layer3[-1].conv2,
+        lambda: model.backbone.layer4[-1].conv2,
         lambda: model.model.layer4[-1].conv2,
         lambda: model.layer4[-1].conv2,
     )

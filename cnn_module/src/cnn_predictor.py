@@ -5,7 +5,7 @@ import importlib
 import numpy as np
 import torch
 
-from cnn_model import InflatedResNet3D, preprocess_mri_array
+from cnn_model import InflatedResNet3D, MultimodalInflatedResNet3D, preprocess_mri_array
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -19,6 +19,30 @@ LABELS = {
     0: "CN",
     1: "AD"
 }
+
+
+def _extract_state_dict(checkpoint):
+    """
+    Accept raw state_dict checkpoints and common wrapped checkpoint formats.
+    """
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        return checkpoint["state_dict"]
+    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+        return checkpoint["model_state_dict"]
+    return checkpoint
+
+
+def _remove_prefix_from_keys(state_dict, prefix: str):
+    return {
+        key.replace(prefix, "", 1) if key.startswith(prefix) else key: value
+        for key, value in state_dict.items()
+    }
+
+
+def _is_multimodal_checkpoint(state_dict) -> bool:
+    return any(key.startswith("backbone.") for key in state_dict) and any(
+        key.startswith("clinical_mlp.") for key in state_dict
+    )
 
 
 def load_nifti_volume(mri_path):
@@ -56,34 +80,47 @@ def load_cnn_model():
     """
     Load CNN model and handle checkpoint keys with or without 'model.' prefix.
     """
+    print(f"Loading Brain Imaging model from: {MODEL_PATH}")
+
     if not MODEL_PATH.exists():
         raise FileNotFoundError(
             f"Model not found: {MODEL_PATH}\n"
             "Place best_resnet3d_model.pth in cnn_module/models/"
         )
 
-    model = InflatedResNet3D(num_classes=2)
-
-    state_dict = torch.load(
+    checkpoint = torch.load(
         MODEL_PATH,
         map_location=DEVICE,
         weights_only=False
     )
 
-    model_keys = list(model.state_dict().keys())
+    state_dict = _extract_state_dict(checkpoint)
+    if not isinstance(state_dict, dict):
+        raise TypeError(
+            "Unsupported Brain Imaging checkpoint format. "
+            f"Expected a state_dict-like object, got {type(state_dict).__name__}."
+        )
+
     checkpoint_keys = list(state_dict.keys())
+    if not checkpoint_keys:
+        raise ValueError("Brain Imaging checkpoint does not contain model weights.")
+
+    if all(key.startswith("model.") for key in checkpoint_keys):
+        print("Removing 'model.' prefix from checkpoint keys...")
+        state_dict = _remove_prefix_from_keys(state_dict, "model.")
+        checkpoint_keys = list(state_dict.keys())
+
+    if _is_multimodal_checkpoint(state_dict):
+        model = MultimodalInflatedResNet3D(num_classes=2)
+    else:
+        model = InflatedResNet3D(num_classes=2)
+
+    model_keys = list(model.state_dict().keys())
 
     first_model_key = model_keys[0]
     first_checkpoint_key = checkpoint_keys[0]
 
-    if first_checkpoint_key.startswith("model.") and not first_model_key.startswith("model."):
-        print("Removing 'model.' prefix from checkpoint keys...")
-        state_dict = {
-            key.replace("model.", "", 1): value
-            for key, value in state_dict.items()
-        }
-
-    elif not first_checkpoint_key.startswith("model.") and first_model_key.startswith("model."):
+    if not first_checkpoint_key.startswith("model.") and first_model_key.startswith("model."):
         print("Adding 'model.' prefix to checkpoint keys...")
         state_dict = {
             "model." + key: value

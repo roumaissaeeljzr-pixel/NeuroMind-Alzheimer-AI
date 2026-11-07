@@ -12,7 +12,8 @@ EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 def load_vectorstore():
     embedding_model = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL_NAME
+        model_name=EMBEDDING_MODEL_NAME,
+        model_kwargs={"device": "cpu"},
     )
 
     vectorstore = FAISS.load_local(
